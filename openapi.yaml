@@ -1,0 +1,328 @@
+openapi: 3.1.0
+info:
+  title: Minimal PIM API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: ok
+  /api/products:
+    get:
+      summary: List products (published by default)
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: categoryId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: sku
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - in: query
+          name: includeDrafts
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Paginated products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedProducts"
+    post:
+      summary: Create product (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: created
+  /api/products/{id}:
+    get:
+      summary: Get product by id or slug
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+    put:
+      summary: Update product (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "200":
+          description: updated
+  /api/categories:
+    get:
+      summary: List categories (flat or tree)
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      summary: Create category (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                parentId:
+                  type: string
+                  nullable: true
+                sortOrder:
+                  type: integer
+              required:
+                - name
+                - slug
+      responses:
+        "201":
+          description: created
+  /api/categories/{id}:
+    put:
+      summary: Update category (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                parentId:
+                  type: string
+                  nullable: true
+                sortOrder:
+                  type: integer
+      responses:
+        "200":
+          description: updated
+    delete:
+      summary: Delete category (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: deleted
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+  schemas:
+    Money:
+      type: object
+      properties:
+        amountCents:
+          type: integer
+        currency:
+          type: string
+      required:
+        - amountCents
+        - currency
+    Image:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+      required:
+        - url
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - slug
+    Variant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        title:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        price:
+          $ref: "#/components/schemas/Money"
+        stockOnHand:
+          type: integer
+        isDefault:
+          type: boolean
+      required:
+        - id
+        - price
+        - stockOnHand
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - published
+            - archived
+        specs:
+          type: object
+          additionalProperties: true
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/Image"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variant"
+      required:
+        - id
+        - name
+        - sku
+        - slug
+        - status
+        - variants
+    ProductInput:
+      type: object
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - published
+            - archived
+        specs:
+          type: object
+          additionalProperties: true
+        categoryIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/Image"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variant"
+      required:
+        - sku
+        - name
+        - slug
+        - status
+        - variants
+    PaginatedProducts:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"

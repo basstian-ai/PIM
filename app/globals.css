@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+  @apply text-blue-600 hover:underline;
+}
+
+button {
+  @apply rounded bg-blue-600 px-3 py-2 text-white hover:bg-blue-500 disabled:opacity-60;
+}
+
+input, textarea, select {
+  @apply w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200;
+}
+
+label {
+  @apply text-sm font-medium text-slate-700;
+}
+
+.table {
+  @apply min-w-full divide-y divide-slate-200 overflow-hidden rounded-lg bg-white shadow;
+}
+
+.table thead {
+  @apply bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600;
+}
+
+.table th,
+.table td {
+  @apply px-4 py-3 align-middle;
+}
