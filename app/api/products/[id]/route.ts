@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { getSessionUser } from "@/lib/auth";
 import type { Database } from "@/lib/types.generated";
 import type { ProductInput } from "@/lib/types";
 import { mapProduct } from "@/lib/mappers";
 import { ensureAdmin } from "../route";
 
-async function fetchProduct(productIdOrSlug: string) {
+async function fetchProduct(
+  productIdOrSlug: string,
+  options: { includeDrafts?: boolean } = {}
+) {
   const supabase = createSupabaseServerClient();
 
-  const baseQuery = supabase.from("products").select("*").limit(1);
+  let query = supabase.from("products").select("*").limit(1);
+  if (!options.includeDrafts) {
+    query = query.eq("status", "published");
+  }
   const isUuid = /^[0-9a-fA-F-]{36}$/.test(productIdOrSlug);
   const { data: products, error } = isUuid
-    ? await baseQuery.eq("id", productIdOrSlug)
-    : await baseQuery.eq("slug", productIdOrSlug);
+    ? await query.eq("id", productIdOrSlug)
+    : await query.eq("slug", productIdOrSlug);
   if (error || !products?.[0]) {
     return { error, product: null } as const;
   }
@@ -65,7 +72,12 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { product, error } = await fetchProduct(params.id);
+  const sessionUser = await getSessionUser();
+  const canViewDrafts = sessionUser && ["admin", "editor"].includes(sessionUser.role);
+
+  const { product, error } = await fetchProduct(params.id, {
+    includeDrafts: Boolean(canViewDrafts),
+  });
   if (error || !product) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -168,7 +180,7 @@ export async function PUT(
     }
   }
 
-  const { product, error } = await fetchProduct(params.id);
+  const { product, error } = await fetchProduct(params.id, { includeDrafts: true });
   if (error || !product) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
