@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { getSessionUser } from "@/lib/auth";
+import { ensureAdmin } from "@/lib/admin";
 import type { Database } from "@/lib/types.generated";
 import type { ProductInput } from "@/lib/types";
 import { mapProduct } from "@/lib/mappers";
+
+type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+type ProductVariantRow = Database["public"]["Tables"]["product_variants"]["Row"];
+type ProductCategoryRow = Database["public"]["Tables"]["product_categories"]["Row"];
+type ProductAssetRow = Database["public"]["Tables"]["product_assets"]["Row"];
+type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
+type AssetRow = Database["public"]["Tables"]["assets"]["Row"];
 
 function allowCors(request: NextRequest, response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
@@ -21,7 +28,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerClient() as any;
   const { searchParams } = new URL(request.url);
   const page = Math.max(parseInt(searchParams.get("page") ?? "1", 10) || 1, 1);
   const pageSize = Math.min(
@@ -50,7 +57,8 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    categoryProductIds = productCategoryRows?.map((row) => row.product_id) ?? [];
+    const categoryRows = (productCategoryRows ?? []) as Array<Pick<ProductCategoryRow, "product_id">>;
+    categoryProductIds = categoryRows.map((row) => row.product_id);
     if (categoryProductIds.length === 0) {
       const emptyResponse = NextResponse.json({ page, pageSize, total: 0, items: [] });
       return allowCors(request, emptyResponse);
@@ -81,7 +89,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const productIds = products?.map((product) => product.id) ?? [];
+  const productRows = (products ?? []) as ProductRow[];
+  const productIds = productRows.map((product) => product.id);
   if (productIds.length === 0) {
     const emptyResponse = NextResponse.json({ page, pageSize, total: 0, items: [] });
     return allowCors(request, emptyResponse);
@@ -105,8 +114,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const categoryIds = Array.from(new Set(productCategoriesRes.data?.map((row) => row.category_id)));
-  const assetIds = Array.from(new Set(productAssetsRes.data?.map((row) => row.asset_id)));
+  const variantRows = (variantsRes.data ?? []) as ProductVariantRow[];
+  const categoryRelations = (productCategoriesRes.data ?? []) as ProductCategoryRow[];
+  const assetRelations = (productAssetsRes.data ?? []) as ProductAssetRow[];
+
+  const categoryIds = Array.from(new Set(categoryRelations.map((row) => row.category_id)));
+  const assetIds = Array.from(new Set(assetRelations.map((row) => row.asset_id)));
 
   const [categoriesRes, assetsRes] = await Promise.all([
     categoryIds.length
@@ -123,26 +136,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 
-  const categoriesById = new Map((categoriesRes as any).data?.map((category: any) => [category.id, category]));
-  const assetsById = new Map((assetsRes as any).data?.map((asset: any) => [asset.id, asset]));
+  const categoriesData = ((categoriesRes as { data: CategoryRow[] | null }).data ?? []) as CategoryRow[];
+  const assetsData = ((assetsRes as { data: AssetRow[] | null }).data ?? []) as AssetRow[];
 
-  const variantsByProduct = new Map<string, typeof variantsRes.data>();
-  for (const variant of variantsRes.data ?? []) {
+  const categoriesById = new Map(categoriesData.map((category) => [category.id, category] as const));
+  const assetsById = new Map(assetsData.map((asset) => [asset.id, asset] as const));
+
+  const variantsByProduct = new Map<string, ProductVariantRow[]>();
+  for (const variant of variantRows) {
     const arr = variantsByProduct.get(variant.product_id) ?? [];
     arr.push(variant);
     variantsByProduct.set(variant.product_id, arr);
   }
 
-  const categoriesByProduct = new Map<string, any[]>();
-  for (const row of productCategoriesRes.data ?? []) {
+  const categoriesByProduct = new Map<string, CategoryRow[]>();
+  for (const row of categoryRelations) {
     const arr = categoriesByProduct.get(row.product_id) ?? [];
     const category = categoriesById.get(row.category_id);
     if (category) arr.push(category);
     categoriesByProduct.set(row.product_id, arr);
   }
 
-  const assetsByProduct = new Map<string, Array<{ asset: any; relation: any }>>();
-  for (const row of productAssetsRes.data ?? []) {
+  const assetsByProduct = new Map<string, Array<{ asset: AssetRow; relation: ProductAssetRow }>>();
+  for (const row of assetRelations) {
     const asset = assetsById.get(row.asset_id);
     if (!asset) continue;
     const arr = assetsByProduct.get(row.product_id) ?? [];
@@ -150,7 +166,7 @@ export async function GET(request: NextRequest) {
     assetsByProduct.set(row.product_id, arr);
   }
 
-  const items = (products ?? []).map((product) =>
+  const items = productRows.map((product) =>
     mapProduct(
       product,
       variantsByProduct.get(product.id) ?? [],
@@ -168,14 +184,6 @@ export async function GET(request: NextRequest) {
   return allowCors(request, response);
 }
 
-export async function ensureAdmin() {
-  const profile = await getSessionUser();
-  if (!profile || profile.role !== "admin") {
-    return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) } as const;
-  }
-  return { profile } as const;
-}
-
 export async function POST(request: NextRequest) {
   const adminCheck = await ensureAdmin();
   if ("response" in adminCheck) return adminCheck.response;
@@ -191,10 +199,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "At least one variant is required" }, { status: 400 });
   }
 
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createSupabaseServerClient() as any;
 
   const { data: product, error } = await supabase
     .from("products")
@@ -218,7 +223,9 @@ export async function POST(request: NextRequest) {
       product_id: product.id,
       category_id: categoryId,
     }));
-    const { error: categoryError } = await supabase.from("product_categories").insert(inserts);
+    const { error: categoryError } = await supabase
+      .from("product_categories")
+      .insert(inserts as never);
     if (categoryError) {
       return NextResponse.json({ error: categoryError.message }, { status: 500 });
     }
@@ -228,14 +235,16 @@ export async function POST(request: NextRequest) {
     product_id: product.id,
     sku: variant.sku ?? null,
     title: variant.title ?? null,
-    attributes: variant.attributes ?? {},
+    attributes: (variant.attributes ?? {}) as ProductVariantRow["attributes"],
     price_cents: variant.price.amountCents,
     currency: variant.price.currency,
     stock_on_hand: variant.stockOnHand,
     is_default: variant.isDefault ?? index === 0,
   }));
 
-  const { error: variantsError } = await supabase.from("product_variants").insert(variantInserts);
+  const { error: variantsError } = await supabase
+    .from("product_variants")
+    .insert(variantInserts as never);
   if (variantsError) {
     return NextResponse.json({ error: variantsError.message }, { status: 500 });
   }
@@ -245,22 +254,25 @@ export async function POST(request: NextRequest) {
       url: image.url,
       alt: image.alt ?? null,
     }));
-    const { data: assets, error: assetError } = await supabase
+    const { data: insertedAssets, error: assetError } = await supabase
       .from("assets")
-      .insert(assetInserts)
+      .insert(assetInserts as never)
       .select("id");
 
     if (assetError) {
       return NextResponse.json({ error: assetError.message }, { status: 500 });
     }
 
-    const productAssetInserts = assets.map((asset, index) => ({
+    const insertedAssetRows = (insertedAssets ?? []) as Pick<AssetRow, "id">[];
+    const productAssetInserts = insertedAssetRows.map((asset, index) => ({
       product_id: product.id,
       asset_id: asset.id,
       role: index === 0 ? "primary" : "gallery",
       sort_order: index,
     }));
-    const { error: productAssetError } = await supabase.from("product_assets").insert(productAssetInserts);
+    const { error: productAssetError } = await supabase
+      .from("product_assets")
+      .insert(productAssetInserts as never);
     if (productAssetError) {
       return NextResponse.json({ error: productAssetError.message }, { status: 500 });
     }

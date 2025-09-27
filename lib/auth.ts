@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types.generated";
 import type { Profile, ProfileRole } from "./types";
 
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+
 export async function getSessionUser() {
   const cookieStore = cookies();
   const accessToken = cookieStore.get("sb-access-token")?.value;
@@ -28,7 +30,8 @@ export async function getSessionUser() {
     .eq("user_id", data.user.id)
     .maybeSingle();
 
-  const role = profile?.role ?? "viewer";
+  const profileRow = (profile ?? null) as Pick<ProfileRow, "user_id" | "role"> | null;
+  const role = profileRow?.role ?? "viewer";
   const result: Profile = {
     userId: data.user.id,
     role: role as ProfileRole,

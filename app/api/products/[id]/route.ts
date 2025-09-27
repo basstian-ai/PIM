@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { getSessionUser } from "@/lib/auth";
 import type { Database } from "@/lib/types.generated";
 import type { ProductInput } from "@/lib/types";
 import { mapProduct } from "@/lib/mappers";
-import { ensureAdmin } from "../route";
+import { ensureAdmin } from "@/lib/admin";
+
+type ProductCategoryRow = Database["public"]["Tables"]["product_categories"]["Row"];
+type ProductAssetRow = Database["public"]["Tables"]["product_assets"]["Row"];
+type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
+type AssetRow = Database["public"]["Tables"]["assets"]["Row"];
 
 async function fetchProduct(
   productIdOrSlug: string,
   options: { includeDrafts?: boolean } = {}
 ) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerClient() as any;
 
   let query = supabase.from("products").select("*").limit(1);
   if (!options.includeDrafts) {
@@ -37,8 +41,11 @@ async function fetchProduct(
     return { error: variantsRes.error ?? productCategoriesRes.error ?? productAssetsRes.error, product: null } as const;
   }
 
-  const categoryIds = productCategoriesRes.data?.map((row) => row.category_id) ?? [];
-  const assetIds = productAssetsRes.data?.map((row) => row.asset_id) ?? [];
+  const productCategoryRows = (productCategoriesRes.data ?? []) as ProductCategoryRow[];
+  const productAssetRows = (productAssetsRes.data ?? []) as ProductAssetRow[];
+
+  const categoryIds = productCategoryRows.map((row) => row.category_id);
+  const assetIds = productAssetRows.map((row) => row.asset_id);
 
   const [categoriesRes, assetsRes] = await Promise.all([
     categoryIds.length
@@ -56,10 +63,10 @@ async function fetchProduct(
     } as const;
   }
 
-  const categories = productCategoriesRes.data
-    ?.map((relation) => (categoriesRes as any).data.find((cat: any) => cat.id === relation.category_id))
+  const categories = productCategoryRows
+    .map((relation) => (categoriesRes as any).data.find((cat: any) => cat.id === relation.category_id))
     .filter(Boolean);
-  const assets = productAssetsRes.data?.map((relation) => ({
+  const assets = productAssetRows.map((relation) => ({
     relation,
     asset: (assetsRes as any).data.find((asset: any) => asset.id === relation.asset_id),
   }));
@@ -101,24 +108,21 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createSupabaseServerClient() as any;
 
-  const updates = {
+  const updates: ProductUpdate = {
     sku: payload.sku,
     name: payload.name,
     slug: payload.slug,
     description: payload.description ?? null,
     status: payload.status,
-    specs: payload.specs ?? {},
+    specs: (payload.specs ?? {}) as ProductUpdate["specs"],
     updated_at: new Date().toISOString(),
   };
 
   const { error: updateError } = await supabase
     .from("products")
-    .update(updates)
+    .update(updates as never)
     .eq("id", params.id);
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -161,20 +165,23 @@ export async function PUT(
       url: image.url,
       alt: image.alt ?? null,
     }));
-    const { data: assets, error: assetError } = await supabase
+    const { data: insertedAssets, error: assetError } = await supabase
       .from("assets")
-      .insert(assetInserts)
+      .insert(assetInserts as never)
       .select("id");
     if (assetError) {
       return NextResponse.json({ error: assetError.message }, { status: 500 });
     }
-    const productAssetRows = assets.map((asset, index) => ({
+    const productAssetRows = (insertedAssets ?? []) as Pick<AssetRow, "id">[];
+    const productAssetInserts = productAssetRows.map((asset, index) => ({
       product_id: params.id,
       asset_id: asset.id,
       role: index === 0 ? "primary" : "gallery",
       sort_order: index,
     }));
-    const { error: productAssetError } = await supabase.from("product_assets").insert(productAssetRows);
+    const { error: productAssetError } = await supabase
+      .from("product_assets")
+      .insert(productAssetInserts as never);
     if (productAssetError) {
       return NextResponse.json({ error: productAssetError.message }, { status: 500 });
     }

@@ -1,32 +1,23 @@
-import { cookies, headers } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { Database } from "../types.generated";
 
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
-  const cookieOptions: CookieOptions = {
+  const cookieOptions = {
     name: "sb-access-token",
     sameSite: "lax",
+    secure: false,
+    path: "/",
+    domain: undefined as string | undefined,
   };
 
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  return createRouteHandlerClient<Database>(
+    { cookies: () => cookieStore },
     {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: "", ...options });
-        },
-      },
-      headers: {
-        Authorization: headers().get("Authorization") ?? "",
-      },
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      cookieOptions,
     }
   );
 }
