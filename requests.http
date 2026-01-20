@@ -1,8 +1,0 @@
-### List products
-GET http://localhost:3000/api/products?page=1&pageSize=20
-
-### Get product by id or slug
-GET http://localhost:3000/api/products/example-t-shirt
-
-### List categories
-GET http://localhost:3000/api/categories
