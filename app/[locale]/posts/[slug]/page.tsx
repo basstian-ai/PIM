@@ -28,6 +28,9 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
     site,
     locale,
     pathname: `/posts/${slug}`,
+    localizedPathnames: {
+      [locale]: `/posts/${slug}`,
+    },
   });
 }
 

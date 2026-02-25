@@ -12,24 +12,34 @@ export function buildLocaleMetadata({
   site,
   locale,
   pathname,
+  localizedPathnames,
 }: {
   title: string;
   description: string;
   site: SiteConfig;
   locale: string;
   pathname: string;
+  localizedPathnames?: Partial<Record<string, string>>;
 }): Metadata {
   const alternates: Record<string, string> = {};
 
   for (const supportedLocale of site.locales) {
-    alternates[supportedLocale] = createAbsolutePath(site, `/${supportedLocale}${pathname}`);
+    const localePath = localizedPathnames ? localizedPathnames[supportedLocale] : pathname;
+
+    if (!localePath) {
+      continue;
+    }
+
+    alternates[supportedLocale] = createAbsolutePath(site, `/${supportedLocale}${localePath}`);
   }
+
+  const canonicalPath = localizedPathnames?.[locale] ?? pathname;
 
   return {
     title,
     description,
     alternates: {
-      canonical: createAbsolutePath(site, `/${locale}${pathname}`),
+      canonical: createAbsolutePath(site, `/${locale}${canonicalPath}`),
       languages: alternates,
     },
   };

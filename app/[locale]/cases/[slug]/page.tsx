@@ -28,6 +28,9 @@ export async function generateMetadata({ params }: CaseDetailPageProps): Promise
     site,
     locale,
     pathname: `/cases/${slug}`,
+    localizedPathnames: {
+      [locale]: `/cases/${slug}`,
+    },
   });
 }
 
