@@ -100,3 +100,12 @@ export function getPublishedEntry(
       entry.status === "published",
   );
 }
+
+export function listAllPublishedEntries(site: string, locale: string): PublicContentEntry[] {
+  return entries.filter(
+    (entry) =>
+      entry.site === site &&
+      entry.locale === locale &&
+      entry.status === "published",
+  );
+}
