@@ -5,7 +5,11 @@ export function resolveLocale(siteLocales: string[], requestedLocale?: string): 
     return siteLocales[0];
   }
 
-  return siteLocales.includes(requestedLocale) ? requestedLocale : siteLocales[0];
+  if (!siteLocales.includes(requestedLocale)) {
+    throw new Error(`Unsupported locale segment: ${requestedLocale}`);
+  }
+
+  return requestedLocale;
 }
 
 export function resolveSiteAndLocale(host: string | null, requestedLocale?: string) {

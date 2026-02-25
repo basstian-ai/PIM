@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 import styles from "../page.module.css";
 import { resolveSiteAndLocale } from "@/lib/site/resolve-context";
@@ -10,7 +11,14 @@ type LocalePageProps = {
 export default async function LocalePage({ params }: LocalePageProps) {
   const { locale: requestedLocale } = await params;
   const host = (await headers()).get("host");
-  const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
+  let site: ReturnType<typeof resolveSiteAndLocale>["site"];
+  let locale: ReturnType<typeof resolveSiteAndLocale>["locale"];
+
+  try {
+    ({ site, locale } = resolveSiteAndLocale(host, requestedLocale));
+  } catch {
+    notFound();
+  }
 
   return (
     <div className={styles.page}>
