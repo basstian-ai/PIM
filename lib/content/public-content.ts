@@ -2,6 +2,7 @@ export type ContentType = "page" | "case" | "post";
 export type ContentStatus = "draft" | "review" | "published" | "archived";
 
 export type PublicContentEntry = {
+  site: string;
   type: ContentType;
   locale: string;
   slug: string;
@@ -13,6 +14,7 @@ export type PublicContentEntry = {
 
 const entries: PublicContentEntry[] = [
   {
+    site: "global",
     type: "case",
     locale: "en",
     slug: "migrated-marketing-platform",
@@ -22,6 +24,7 @@ const entries: PublicContentEntry[] = [
     status: "published",
   },
   {
+    site: "global",
     type: "case",
     locale: "no",
     slug: "migrert-markedsplattform",
@@ -31,6 +34,7 @@ const entries: PublicContentEntry[] = [
     status: "published",
   },
   {
+    site: "global",
     type: "post",
     locale: "en",
     slug: "launching-the-new-mvp",
@@ -40,6 +44,7 @@ const entries: PublicContentEntry[] = [
     status: "published",
   },
   {
+    site: "global",
     type: "post",
     locale: "no",
     slug: "lansering-av-ny-mvp",
@@ -49,6 +54,7 @@ const entries: PublicContentEntry[] = [
     status: "published",
   },
   {
+    site: "global",
     type: "page",
     locale: "en",
     slug: "contact",
@@ -58,6 +64,7 @@ const entries: PublicContentEntry[] = [
     status: "published",
   },
   {
+    site: "global",
     type: "page",
     locale: "no",
     slug: "contact",
@@ -68,13 +75,25 @@ const entries: PublicContentEntry[] = [
   },
 ];
 
-export function listPublishedEntries(type: ContentType, locale: string): PublicContentEntry[] {
-  return entries.filter((entry) => entry.type === type && entry.locale === locale && entry.status === "published");
+export function listPublishedEntries(site: string, type: ContentType, locale: string): PublicContentEntry[] {
+  return entries.filter(
+    (entry) =>
+      entry.site === site &&
+      entry.type === type &&
+      entry.locale === locale &&
+      entry.status === "published",
+  );
 }
 
-export function getPublishedEntry(type: ContentType, locale: string, slug: string): PublicContentEntry | undefined {
+export function getPublishedEntry(
+  site: string,
+  type: ContentType,
+  locale: string,
+  slug: string,
+): PublicContentEntry | undefined {
   return entries.find(
     (entry) =>
+      entry.site === site &&
       entry.type === type &&
       entry.locale === locale &&
       entry.slug === slug &&

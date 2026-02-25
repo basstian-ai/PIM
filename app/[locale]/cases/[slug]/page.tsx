@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: CaseDetailPageProps): Promise
   const host = (await headers()).get("host");
   const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
 
-  const entry = getPublishedEntry("case", locale, slug);
+  const entry = getPublishedEntry(site.key, "case", locale, slug);
   if (!entry) {
     return {};
   }
@@ -35,8 +35,10 @@ export async function generateMetadata({ params }: CaseDetailPageProps): Promise
 }
 
 export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
-  const { locale, slug } = await params;
-  const entry = getPublishedEntry("case", locale, slug);
+  const { locale: requestedLocale, slug } = await params;
+  const host = (await headers()).get("host");
+  const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
+  const entry = getPublishedEntry(site.key, "case", locale, slug);
 
   if (!entry) {
     notFound();

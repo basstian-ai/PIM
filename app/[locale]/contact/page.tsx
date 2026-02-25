@@ -27,8 +27,10 @@ export async function generateMetadata({ params }: ContactPageProps): Promise<Me
 }
 
 export default async function ContactPage({ params }: ContactPageProps) {
-  const { locale } = await params;
-  const entry = getPublishedEntry("page", locale, "contact");
+  const { locale: requestedLocale } = await params;
+  const host = (await headers()).get("host");
+  const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
+  const entry = getPublishedEntry(site.key, "page", locale, "contact");
 
   if (!entry) {
     notFound();

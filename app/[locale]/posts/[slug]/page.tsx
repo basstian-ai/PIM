@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
   const host = (await headers()).get("host");
   const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
 
-  const entry = getPublishedEntry("post", locale, slug);
+  const entry = getPublishedEntry(site.key, "post", locale, slug);
   if (!entry) {
     return {};
   }
@@ -35,8 +35,10 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
 }
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
-  const { locale, slug } = await params;
-  const entry = getPublishedEntry("post", locale, slug);
+  const { locale: requestedLocale, slug } = await params;
+  const host = (await headers()).get("host");
+  const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
+  const entry = getPublishedEntry(site.key, "post", locale, slug);
 
   if (!entry) {
     notFound();

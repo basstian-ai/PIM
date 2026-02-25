@@ -27,8 +27,10 @@ export async function generateMetadata({ params }: CasesPageProps): Promise<Meta
 }
 
 export default async function CasesPage({ params }: CasesPageProps) {
-  const { locale } = await params;
-  const entries = listPublishedEntries("case", locale);
+  const { locale: requestedLocale } = await params;
+  const host = (await headers()).get("host");
+  const { site, locale } = resolveSiteAndLocale(host, requestedLocale);
+  const entries = listPublishedEntries(site.key, "case", locale);
 
   return (
     <div className={styles.page}>
