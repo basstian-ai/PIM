@@ -413,6 +413,10 @@ Never expose server secrets to the client.
 
 ---
 
+## Project planning
+
+- MVP plan: `docs/mvp-plan.md`
+
 ## Contributing
 
 See `agents.md` for guardrails and agent workflow.
