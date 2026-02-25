@@ -420,3 +420,25 @@ Never expose server secrets to the client.
 ## Contributing
 
 See `agents.md` for guardrails and agent workflow.
+
+---
+
+## Lokal oppstart (Sprint 1)
+
+1. Kopier miljøvariabler:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Sett Supabase-verdier i `.env.local`.
+
+3. Start utviklingsserver:
+
+   ```bash
+   pnpm dev
+   ```
+
+4. Verifiser market + locale-resolusjon:
+   - `http://localhost:3000` redirecter til site default locale (`/en`)
+   - `http://localhost:3000/no` viser at locale er `no`
